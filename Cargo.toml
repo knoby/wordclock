@@ -1,0 +1,33 @@
+[package]
+authors = ["knoby <maximilian.brinkmann@posteo.de>"]
+edition = "2018"
+name = "wordclock"
+version = "0.1.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# A panic handler is needed.  This is a crate with the most basic one.
+dcf77 = "0.1.0"
+ds1307 = "0.3.0"
+embedded-hal = "0.2.4"
+panic-halt = "0.2.0"
+ufmt = "0.1.0"
+
+[dependencies.arduino-uno]
+features = ["arduino-nano", "rt"]
+git = "https://github.com/rahix/avr-hal"
+rev = "a20277873a8102998d5fd69743771bd8c0aa9423"
+
+# Configure the build for minimal size
+[profile.dev]
+lto = true
+opt-level = "s"
+panic = "abort"
+
+[profile.release]
+codegen-units = 1
+debug = true
+lto = true
+opt-level = "s"
+panic = "abort"
