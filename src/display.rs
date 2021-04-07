@@ -2,8 +2,13 @@ use core::usize;
 
 use embedded_hal::digital::v2::OutputPin;
 
+pub mod corner;
+pub mod words;
+
 const MAX_TIME_ON: u16 = 10_000;
 const MIN_TIME_ON: u16 = 0;
+
+type DisplayBuffer = [u16; 10];
 
 pub struct Display {
     pin_latch: crate::hw_config::ShiftregLatch,
@@ -11,7 +16,7 @@ pub struct Display {
     pin_data: crate::hw_config::ShiftregData,
     pin_output_enable: crate::hw_config::ShiftregOutputEnable,
 
-    data: [[bool; 16]; 16],
+    pub data: DisplayBuffer,
 
     brightness: u8,
 }
@@ -28,8 +33,8 @@ impl Display {
             pin_clock,
             pin_data,
             pin_output_enable,
-            data: [[false; 16]; 16],
-            brightness: 128,
+            data: [0b0000_0000_0000_0000; 10],
+            brightness: 255,
         }
     }
 
@@ -49,10 +54,22 @@ impl Display {
     fn display_line(&mut self, line: usize) {
         // Set latch to low
         self.pin_latch.set_low().unwrap();
-        // Output data to shifregister
-        for data_out in self.data[line].iter() {
+        // Output data for the current line to shifregister
+        let mut mask = 0x0001;
+        for _ in 0..16 {
             self.pin_clock.set_low().unwrap();
-            if *data_out {
+            if (self.data[line] & mask) != 0 {
+                self.pin_data.set_high().unwrap();
+            } else {
+                self.pin_data.set_low().unwrap();
+            }
+            self.pin_clock.set_high().unwrap();
+            mask <<= 1;
+        }
+        // select the correct line
+        for line_bit in 0..16 {
+            self.pin_clock.set_low().unwrap();
+            if line == line_bit {
                 self.pin_data.set_high().unwrap();
             } else {
                 self.pin_data.set_low().unwrap();

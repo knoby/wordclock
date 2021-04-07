@@ -280,6 +280,7 @@ name = "wordclock"
 version = "0.1.0"
 dependencies = [
  "arduino-uno",
+ "avr-device",
  "dcf77",
  "ds1307",
  "embedded-hal",

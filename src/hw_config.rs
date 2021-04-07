@@ -11,14 +11,9 @@ use arduino_uno::{
 pub struct Resources {
     pub rtc: Rtc,
     pub rtc_sqw_pin: RtcSqwPin,
-    pub led_yellow: LedYellow,
-    pub led_green: LedGreen,
-    pub dcf77_pin: Dcf77Pin,
+    pub led_on_board: LedOnBoard,
     pub ldr_pin: LdrPin,
-    pub shiftreg_clock: ShiftregClock,
-    pub shiftreg_data: ShiftregData,
-    pub shiftreg_latch: ShiftregLatch,
-    pub shiftreg_output_enable: ShiftregOutputEnable,
+    pub display: crate::display::Display,
     pub pin_mode: PinMode,
     pub pin_min: PinMin,
     pub pin_hour: PinHour,
@@ -27,10 +22,11 @@ pub struct Resources {
 
 pub type LdrPin = PC3<Analog>;
 
-pub type Dcf77Pin = PB1<Input<Floating>>;
+pub type Dcf77Pin = PB1<Input<PullUp>>;
 
 pub type LedGreen = PD4<Output>;
 pub type LedYellow = PB0<Output>;
+pub type LedOnBoard = PB5<Output>;
 
 pub type Rtc = ds1307::Ds1307<I2cMaster<Input<PullUp>>>;
 pub type RtcSqwPin = PD2<Input<Floating>>;
