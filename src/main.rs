@@ -6,22 +6,21 @@
 // Pull in the panic handler from panic-halt
 extern crate panic_halt;
 
-use core::{
-    cell::{Cell, RefCell},
-    ops::Shl,
-};
+use core::cell::{Cell, RefCell};
 
 use arduino_uno::prelude::*;
-use avr_device::interrupt::Mutex;
+use avr_device::interrupt::{free, Mutex};
 use ds1307::Rtcc;
+use util::{SharedInput, SharedOutput};
 
 mod display;
 mod hw_config;
+mod util;
 
 // Resources init in main and used in interrupt
-static mut DCF77_PIN: Option<hw_config::Dcf77Pin> = None;
-static mut LED_GREEN: Option<hw_config::LedGreen> = None;
-static mut LED_YELLOW: Option<hw_config::LedYellow> = None;
+static DCF77_PIN: Mutex<RefCell<Option<hw_config::Dcf77Pin>>> = Mutex::new(RefCell::new(None));
+static LED_GREEN: Mutex<RefCell<Option<hw_config::LedGreen>>> = Mutex::new(RefCell::new(None));
+static LED_YELLOW: Mutex<RefCell<Option<hw_config::LedYellow>>> = Mutex::new(RefCell::new(None));
 
 // Resources used in main and in interrupt
 static DCF77_PIN_STATES: Mutex<RefCell<[Option<bool>; 8]>> = Mutex::new(RefCell::new([None; 8]));
@@ -60,41 +59,54 @@ fn main() -> ! {
     }
 }
 
+/// Every Rising Edge of the square wave signal of the rtc die is counted
+/// With this counter we can determin when it is time to update the display (every 60s)
 #[avr_device::interrupt(atmega328p)]
 fn INT0() {
-    unsafe { LED_YELLOW.as_mut().unwrap().toggle().void_unwrap() };
+    free(|cs| {
+        LED_YELLOW.toggle(cs).void_unwrap();
+    });
 }
 
+/// Cyclic Function that is called every milli second
+/// every 10th call the state of the dcf77 reciver is polled and queued to the main task
+/// Every Cycle a variable is increased to support a millis function like in arduino
 #[avr_device::interrupt(atmega328p)]
 fn TIMER0_COMPA() {
     static mut COUNTER: u8 = 0;
 
+    // Inc Millis counter
     avr_device::interrupt::free(|cs| {
         let counter_cell = MILLIS_COUNTER.borrow(cs);
         let counter = counter_cell.get();
-        counter_cell.set(counter + 1);
+        counter_cell.set(counter.wrapping_add(1));
     });
 
-    if unsafe { COUNTER == 0 } {
-        // Read Pin state
+    match unsafe { COUNTER } {
+        0 => {
+            free(|cs| {
+                let dcf77_pin_state = DCF77_PIN.is_high(cs).void_unwrap();
 
-        // Safe, bacause we only access this in this interrupt
-        let dcf77_pin_state = unsafe { DCF77_PIN.as_mut().unwrap().is_high() }.void_unwrap();
-        unsafe {
-            if dcf77_pin_state {
-                LED_GREEN.as_mut().unwrap().set_high().void_unwrap();
-            } else {
-                LED_GREEN.as_mut().unwrap().set_low().void_unwrap();
-            }
+                LED_GREEN.set(cs, dcf77_pin_state).void_unwrap();
+
+                // Get access to the list of states and add to the list
+                let mut list = DCF77_PIN_STATES.borrow(cs).borrow_mut();
+                if let Some(item) = (*list).iter_mut().find(|item| item.is_none()) {
+                    *item = Some(dcf77_pin_state);
+                }
+            });
         }
-        // Get access to the list of states and add to the list
-        avr_device::interrupt::free(|cs| {
-            let mut list = DCF77_PIN_STATES.borrow(cs).borrow_mut();
-            if let Some(item) = (*list).iter_mut().find(|item| item.is_none()) {
-                *item = Some(dcf77_pin_state);
-            }
-        });
-    }
+        1 => (),
+        2 => (),
+        3 => (),
+        4 => (),
+        5 => (),
+        6 => (),
+        7 => (),
+        8 => (),
+        9 => (),
+        _ => (),
+    };
 
     unsafe {
         COUNTER += 1;
@@ -104,6 +116,7 @@ fn TIMER0_COMPA() {
     }
 }
 
+#[allow(dead_code)]
 fn millis() -> u32 {
     avr_device::interrupt::free(|cs| MILLIS_COUNTER.borrow(cs).get())
 }
@@ -134,14 +147,15 @@ fn setup() -> hw_config::Resources {
     );
 
     // LED Pins
-    unsafe { LED_GREEN = Some(pins.d4.into_output(&pins.ddr)) };
-    unsafe { LED_YELLOW = Some(pins.d8.into_output(&pins.ddr)) };
+    let led_green = Some(pins.d4.into_output(&pins.ddr));
+    free(|cs| LED_GREEN.borrow(cs).replace(led_green));
+    let led_yellow = Some(pins.d8.into_output(&pins.ddr));
+    free(|cs| LED_YELLOW.borrow(cs).replace(led_yellow));
     let led_on_board = pins.d13.into_output(&pins.ddr);
 
     // Pin with signal from dcf77
-    unsafe {
-        DCF77_PIN = Some(pins.d9.into_pull_up_input(&pins.ddr));
-    }
+    let dcf77_pin = Some(pins.d9.into_pull_up_input(&pins.ddr));
+    free(|cs| DCF77_PIN.borrow(cs).replace(dcf77_pin));
 
     // Init Light Depending Resistor
     let adc_settings = arduino_uno::adc::AdcSettings::default();
