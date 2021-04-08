@@ -37,12 +37,6 @@ fn main() -> ! {
     resources.display.data = [0xfffe; 10];
     resources.display.enable_output();
 
-    // Init Clock
-    resources.rtc.enable_square_wave_output().unwrap();
-    if 2021 == resources.rtc.get_year().unwrap() {
-        resources.led_on_board.set_high().void_unwrap();
-    }
-
     // Init DCF77 Decoder
     let mut dcf77 = dcf77::SimpleDCF77Decoder::new();
 
@@ -181,8 +175,10 @@ fn setup() -> hw_config::Resources {
     let pin_hour = pins.d5.into_floating_input(&pins.ddr);
 
     // Init rtc - ds1307
-    let rtc = ds1307::Ds1307::new(i2c);
+    let mut rtc = ds1307::Ds1307::new(i2c);
     let rtc_sqw_pin = pins.d2.into_floating_input(&pins.ddr);
+    // Enable SQW Output
+    rtc.enable_square_wave_output().unwrap();
     // Enable interrupt on sqw pin
     dp.EXINT.eicra.write(|w| w.isc0().val_0x03()); // Rising Edge on INT0
     dp.EXINT.eimsk.write(|w| w.int0().set_bit()); // Enable the Interrupt
