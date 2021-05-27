@@ -1,4 +1,4 @@
-use core::{borrow::Borrow, cell::RefCell};
+use core::cell::RefCell;
 
 use avr_device::interrupt::Mutex;
 

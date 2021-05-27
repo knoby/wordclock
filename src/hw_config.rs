@@ -14,10 +14,10 @@ pub struct Resources {
     pub led_on_board: LedOnBoard,
     pub ldr_pin: LdrPin,
     pub display: crate::display::Display,
-    pub pin_mode: PinMode,
-    pub pin_min: PinMin,
-    pub pin_hour: PinHour,
     pub serial: SerialUsb,
+    pub btn_birghtness: BtnBrightness,
+    pub btn_min: BtnMin,
+    pub btn_hour: BtnHour,
 }
 
 pub type LdrPin = PC3<Analog>;
@@ -36,8 +36,8 @@ pub type ShiftregLatch = PB3<Output>;
 pub type ShiftregData = PB2<Output>;
 pub type ShiftregOutputEnable = PD3<Output>;
 
-pub type PinMode = PD7<Input<Floating>>;
-pub type PinMin = PD6<Input<Floating>>;
-pub type PinHour = PD5<Input<Floating>>;
+pub type BtnBrightness = PD7<Input<Floating>>;
+pub type BtnMin = PD6<Input<Floating>>;
+pub type BtnHour = PD5<Input<Floating>>;
 
 pub type SerialUsb = Serial<Floating>;
